@@ -1,23 +1,41 @@
-from prompt_toolkit import prompt
-from prompt_toolkit.shortcuts import radiolist_dialog
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.history import FileHistory
+import click
+import paramiko
 from db import create_tables
 from db import insert_connection
 from db import get_connections
 
 
+@click.command()
+@click.option('--host', prompt='Enter the hostname', help='Remote host to connect to')
+@click.option('--username', prompt='Enter your username', help='Your SSH username')
+@click.option('--password', prompt='Enter your password', hide_input=True, help='Your SSH password')
+def add_connection(host, username, password):
+    
+    try:
+        # Create an SSH client
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-def add_connection():
-    print("add_connection invoked")
-    name = prompt("Connection Name: ")
-    host = prompt("Host: ")
-    username = prompt("Username: ")
-    password = prompt("Password: ", is_password=True)
+        # Connect to the remote server
+        ssh.connect(host, username=username, password=password)
 
-   
-    insert_connection(name, host, username, password)
-    print("Connection added successfully.")
+        while True:
+            command = input(f'{username}@{host}$ ')
+            if command.lower() == 'exit':
+                break
+
+            # Execute the command
+            stdin, stdout, stderr = ssh.exec_command(command)
+            output = stdout.read().decode('utf-8')
+            click.echo(output)
+
+    except paramiko.AuthenticationException:
+        click.echo("Authentication failed, please check your credentials.")
+    except paramiko.SSHException as e:
+        click.echo("Unable to establish SSH connection:", str(e))
+    finally:
+        ssh.close()
+
 
 def edit_connection():
     # Implement editing logic here
@@ -26,28 +44,17 @@ def edit_connection():
 def show_connections():
     connections = get_connections()
     
-    result = radiolist_dialog(
-        title="Existing connection dialog",
-        text="Pick the one you want to connect",
-        values=[(str(i), label) for i, label in enumerate(connections)]
-    ).run()
 
-    print(f"Result = {result}")
-
-def main():
-    result = radiolist_dialog(
-        title="SSH dialog",
-        text="Which action you want to take?",
-        values=[
-            ("add", "Add New Connection"),
-            ("edit", "Edit Connection"),
-            ("show", "Show Connections")
-        ]
-    ).run()
-
+@click.command()
+@click.option('--add', 'action', flag_value='add')
+@click.option('--show', 'action', flag_value='show', default=True)
+def main(action):
+    click.echo(action)
     
-    print(f"Result = {result}")
-    show_connections()
+    if(action == 'add'):
+        add_connection()
+    if(action == 'show'):
+        show_connections()
 
 if __name__ == '__main__':
     create_tables()
