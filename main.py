@@ -1,5 +1,6 @@
 import sqlite3
 from prompt_toolkit import prompt
+from prompt_toolkit.shortcuts import radiolist_dialog
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
@@ -20,6 +21,7 @@ cursor.execute('''
 conn.commit()
 
 def add_connection():
+    print("add_connection invoked")
     name = prompt("Connection Name: ")
     host = prompt("Host: ")
     username = prompt("Username: ")
@@ -39,24 +41,25 @@ def show_connections():
 
     connection_completer = WordCompleter([f"{conn[0]}: {conn[1]} ({conn[2]})" for conn in connections])
 
-    connection_id = prompt("Select a connection to connect to: ", completer=connection_completer)
-    # Implement connection logic here
+    selected_connection = select_menu([f"{conn[0]}: {conn[1]} ({conn[2]})" for conn in connections], title="Select a connection to connect to: ", menu_cursor=8)
+
+    # Implement connection logic based on the selected_connection
     pass
 
 def main():
-    while True:
-        option = prompt("Choose an option (add, edit, show, exit): ")
+    result = radiolist_dialog(
+        title="SSH dialog",
+        text="Which action you want to take?",
+        values=[
+            ("add", "Add New Connection"),
+            ("edit", "Edit Connection"),
+            ("show", "Show Connections")
+        ]
+    ).run()
 
-        if option.lower() == 'add':
-            add_connection()
-        elif option.lower() == 'edit':
-            edit_connection()
-        elif option.lower() == 'show':
-            show_connections()
-        elif option.lower() == 'exit':
-            break
-        else:
-            print("Invalid option. Please choose from 'add', 'edit', 'show', or 'exit'.")
+    
+    print(f"Result = {result}")
+    add_connection()
 
 if __name__ == '__main__':
     main()
