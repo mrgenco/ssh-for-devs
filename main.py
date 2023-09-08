@@ -1,24 +1,12 @@
-import sqlite3
 from prompt_toolkit import prompt
 from prompt_toolkit.shortcuts import radiolist_dialog
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
+from db import create_tables
+from db import insert_connection
+from db import get_connections
 
-# Create a SQLite database (or connect to an existing one)
-conn = sqlite3.connect('connections.db')
-cursor = conn.cursor()
 
-# Create a table to store connection details
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS connections (
-        id INTEGER PRIMARY KEY,
-        name TEXT,
-        host TEXT,
-        username TEXT,
-        password TEXT
-    )
-''')
-conn.commit()
 
 def add_connection():
     print("add_connection invoked")
@@ -27,8 +15,8 @@ def add_connection():
     username = prompt("Username: ")
     password = prompt("Password: ", is_password=True)
 
-    cursor.execute("INSERT INTO connections (name, host, username, password) VALUES (?, ?, ?, ?)", (name, host, username, password))
-    conn.commit()
+   
+    insert_connection(name, host, username, password)
     print("Connection added successfully.")
 
 def edit_connection():
@@ -36,15 +24,15 @@ def edit_connection():
     pass
 
 def show_connections():
-    cursor.execute("SELECT id, name, host FROM connections")
-    connections = cursor.fetchall()
+    connections = get_connections()
+    
+    result = radiolist_dialog(
+        title="Existing connection dialog",
+        text="Pick the one you want to connect",
+        values=[(str(i), label) for i, label in enumerate(connections)]
+    ).run()
 
-    connection_completer = WordCompleter([f"{conn[0]}: {conn[1]} ({conn[2]})" for conn in connections])
-
-    selected_connection = select_menu([f"{conn[0]}: {conn[1]} ({conn[2]})" for conn in connections], title="Select a connection to connect to: ", menu_cursor=8)
-
-    # Implement connection logic based on the selected_connection
-    pass
+    print(f"Result = {result}")
 
 def main():
     result = radiolist_dialog(
@@ -59,7 +47,8 @@ def main():
 
     
     print(f"Result = {result}")
-    add_connection()
+    show_connections()
 
 if __name__ == '__main__':
+    create_tables()
     main()
