@@ -21,5 +21,5 @@ def insert_connection(name, host, username, password):
     conn.commit()
 
 def get_connections():
-    cursor.execute("SELECT id, name, host FROM connections")
+    cursor.execute("SELECT id, name, host, username, password FROM connections")
     return cursor.fetchall()
