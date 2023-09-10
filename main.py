@@ -5,14 +5,27 @@ from db import insert_connection
 from db import get_connections
 
 
+
 @click.command()
-@click.option('--name', prompt='Enter a name(label) for your connection', help='Remote host to connect to')
-@click.option('--host', prompt='Enter the hostname', help='Remote host to connect to')
-@click.option('--username', prompt='Enter your username', help='Your SSH username')
-@click.option('--password', prompt='Enter your password', hide_input=True, help='Your SSH password')
-def add_connection(name, host, username, password):
+@click.option('--add', 'action', flag_value='add', help='Add new connection')
+@click.option('--show', 'action', flag_value='show',help='Show connections')
+def main(action):
+    if(action == 'add'):
+        add_connection()
+    if(action == 'show'):
+        show_connections()
+    else:
+        click.echo('Invalid usage of ssh-for-dev. Use --help for available options')
+
+
+def add_connection():
     
     try:
+        name = click.prompt('Enter a name(label) for your connection')
+        host = click.prompt('Enter the hostname')
+        username = click.prompt('Enter your username')
+        password = click.prompt('Enter your password')
+
         # Create an SSH client
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -39,9 +52,9 @@ def add_connection(name, host, username, password):
     except Exception as e:
         click.echo("Exception occured while adding new SSH connection:", str(e))
     finally:
+        ssh.close()
         # Save the connection information for later usage
         insert_connection(name, host, username, password)
-        ssh.close()
 
 
 def connect(host, username, password):
@@ -80,18 +93,6 @@ def show_connections():
 
     
     
-    
-
-@click.command()
-@click.option('--add', 'action', flag_value='add', help='Add new connection')
-@click.option('--show', 'action', flag_value='show',help='Show connections')
-def main(action):
-    if(action == 'add'):
-        add_connection()
-    if(action == 'show'):
-        show_connections()
-    else:
-        click.echo('Invalid usage of ssh-for-dev. Use --help for available options')
 
 if __name__ == '__main__':
     create_tables()
