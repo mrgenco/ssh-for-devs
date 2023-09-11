@@ -1,5 +1,6 @@
 import click
 import paramiko
+import re
 from db import create_tables
 from db import insert_connection
 from db import get_connections
@@ -11,39 +12,76 @@ from db import get_connections
 @click.option('--show', 'action', flag_value='show',help='Show connections')
 def main(action):
     if(action == 'add'):
-        add_connection()
+        create_connection()
     if(action == 'show'):
         show_connections()
     else:
-        click.echo('Invalid usage of ssh-for-dev. Use --help for available options')
+        show_connections()
+       # click.echo('Invalid usage of ssh-for-dev. Use --help for available options')
+
+import re  # Import the regular expressions library
+
+def remove_ansi_escape_codes(text):
+    # Use a regular expression to remove ANSI escape codes
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', text)
 
 
-def add_connection():
+def create_connection():
     
+    name = click.prompt('Enter a name(label) for your connection')
+    host = click.prompt('Enter the hostname')
+    username = click.prompt('Enter your username')
+    password = click.prompt('Enter your password',hide_input=True)
+    connect(host, username, password)
+    # Save the connection information for later usage
+    insert_connection(name, host, username, password)
+
+  
+
+def connect(host, username, password):
+
     try:
-        name = click.prompt('Enter a name(label) for your connection')
-        host = click.prompt('Enter the hostname')
-        username = click.prompt('Enter your username')
-        password = click.prompt('Enter your password')
+    
+        click.echo(f'Connecting to {username}@{host}...')
 
         # Create an SSH client
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         # Connect to the remote server
-        ssh.connect(name, host, username, password)
+        ssh.connect(hostname=host, port=22, username=username, password=password)
 
+        # Open an interactive shell session
+        ssh_shell = ssh.invoke_shell()     
 
         while True:
-            command = input(f'{username}@{host}$ ')
-            if command.lower() == 'exit':
+            # Get user input
+            user_input = input()
+
+            if user_input.lower() == 'exit':
                 break
 
-            # Execute the command
-            stdin, stdout, stderr = ssh.exec_command(command)
-            output = stdout.read().decode('utf-8')
-            click.echo(output)
+            # Send the user's command to the remote server
+            ssh_shell.send(user_input + '\n')
 
+            # Read and display the server's response
+            response = ''
+            while ssh_shell.recv_ready():
+                response += ssh_shell.recv(1024).decode('utf-8')
+
+            # Remove ANSI escape codes from the response
+            clean_response = remove_ansi_escape_codes(response)
+    
+            print(clean_response)  
+        
+        # Close the shell session
+        ssh_shell.close()
+
+        # Close the SSH connection
+        ssh.close()
+
+        
 
     except paramiko.AuthenticationException:
         click.echo("Authentication failed, please check your credentials.")
@@ -53,28 +91,8 @@ def add_connection():
         click.echo("Exception occured while adding new SSH connection:", str(e))
     finally:
         ssh.close()
-        # Save the connection information for later usage
-        insert_connection(name, host, username, password)
-
-
-def connect(host, username, password):
-    click.echo(f'Connecting to {username}@{host}...')
-    # Create an SSH client
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    # Connect to the remote server
-    ssh.connect(host, username, password)
-
-    while True:
-        command = input(f'{username}@{host}$ ')
-        if command.lower() == 'exit':
-            break
-
-        # Execute the command
-        stdin, stdout, stderr = ssh.exec_command(command)
-        output = stdout.read().decode('utf-8')
-        click.echo(output)
+    
+    
 
 
 def edit_connection():
